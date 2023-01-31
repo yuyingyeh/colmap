@@ -217,13 +217,23 @@ camera centers of a subset or all registered images. The 3D similarity
 transformation between the reconstructed model and the target coordinate frame
 of the geo-registration is determined from these correspondences.
 
-The geo-registered 3D coordinates of the camera centers for images must be
-specified in a text-file with the following format::
+The geo-registered 3D coordinates can either be extracted from the database 
+(tvec_prior field) or from a user specified text file. 
+For text-files, the geo-registered 3D coordinates of the camera centers for 
+images must be specified with the following format::
 
     image_name1.jpg X1 Y1 Z1
     image_name2.jpg X2 Y2 Z2
     image_name3.jpg X3 Y3 Z3
     ...
+
+The coordinates can be either GPS-based (lat/lon/alt) or cartesian-based (x/y/z).
+In case of GPS coordinates, a conversion will be performed to turn those into
+cartesian coordinates.  The conversion can be done from GPS to ECEF
+(Earth-Centered-Earth-Fixed) or to ENU (East-North-Up) coordinates. If ENU coordinates
+are used, the first image GPS coordinates will define the origin of the ENU frame.
+It is also possible to use ECEF coordinates for alignment and then rotate the aligned 
+reconstruction into the ENU plane.
 
 Note that at least 3 images must be specified to estimate a 3D similarity
 transformation. Then, the model can be geo-registered using::
@@ -231,8 +241,16 @@ transformation. Then, the model can be geo-registered using::
     colmap model_aligner \
         --input_path /path/to/model \
         --output_path /path/to/geo-registered-model \
-        --ref_images_path /path/to/text-file
+        --ref_images_path /path/to/text-file (or --database_path /path/to/databse.db) \
+        --ref_is_gps 1 \
+        --alignment_type ecef \
+        --robust_alignment 1 \
+        --robust_alignment_max_error 3.0 (where 3.0 is the error threshold to be used in RANSAC)
 
+By default, the robust_alignment flag is set to 1.  If this flag is set, a 3D similarity
+transformation will be estimated with a RANSAC estimator to be robust to potential outliers
+in the data.  In such case, it is required to provide the error threshold to be used in the 
+RANSAC estimator.
 
 Manhattan world alignment
 -------------------------
@@ -320,8 +338,13 @@ external dense reconstruction software as an alternative, as described in the
 or you want to execute COLMAP on a machine without an attached display and
 without CUDA support, you can run all steps on the CPU by specifying the
 appropriate options (e.g., ``--SiftExtraction.use_gpu=false`` for the feature
-extraction step). But not that this might result in a significant slow-down of
-the reconstruction pipeline.
+extraction step). But note that this might result in a significant slow-down of
+the reconstruction pipeline. Please, also note that feature extraction on the
+CPU can consume excessive RAM for large images in the default settings, which
+might require manually reducing the maximum image size using
+``--SiftExtraction.max_image_size`` and/or setting
+``--SiftExtraction.first_octave 0`` or by manually limiting the number of
+threads using ``--SiftExtraction.num_threads``.
 
 
 Multi-GPU support in feature extraction/matching

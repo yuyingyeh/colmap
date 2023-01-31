@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -109,8 +109,8 @@ void IncrementalMapper::BeginReconstruction(Reconstruction* reconstruction) {
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
   reconstruction_->SetUp(&database_cache_->CorrespondenceGraph());
-  triangulator_.reset(new IncrementalTriangulator(
-      &database_cache_->CorrespondenceGraph(), reconstruction));
+  triangulator_ = std::make_unique<IncrementalTriangulator>(
+      &database_cache_->CorrespondenceGraph(), reconstruction);
 
   num_shared_reg_images_ = 0;
   num_reg_images_per_camera_.clear();
@@ -365,24 +365,21 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // Search for 2D-3D correspondences
   //////////////////////////////////////////////////////////////////////////////
 
-  const int kCorrTransitivity = 1;
+  const CorrespondenceGraph& correspondence_graph =
+      database_cache_->CorrespondenceGraph();
 
   std::vector<std::pair<point2D_t, point3D_t>> tri_corrs;
   std::vector<Eigen::Vector2d> tri_points2D;
   std::vector<Eigen::Vector3d> tri_points3D;
 
+  std::unordered_set<point3D_t> corr_point3D_ids;
   for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
        ++point2D_idx) {
     const Point2D& point2D = image.Point2D(point2D_idx);
-    const CorrespondenceGraph& correspondence_graph =
-        database_cache_->CorrespondenceGraph();
-    const std::vector<CorrespondenceGraph::Correspondence> corrs =
-        correspondence_graph.FindTransitiveCorrespondences(
-            image_id, point2D_idx, kCorrTransitivity);
 
-    std::unordered_set<point3D_t> point3D_ids;
-
-    for (const auto corr : corrs) {
+    corr_point3D_ids.clear();
+    for (const auto& corr :
+         correspondence_graph.FindCorrespondences(image_id, point2D_idx)) {
       const Image& corr_image = reconstruction_->Image(corr.image_id);
       if (!corr_image.IsRegistered()) {
         continue;
@@ -394,7 +391,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       }
 
       // Avoid duplicate correspondences.
-      if (point3D_ids.count(corr_point2D.Point3DId()) > 0) {
+      if (corr_point3D_ids.count(corr_point2D.Point3DId()) > 0) {
         continue;
       }
 
@@ -412,7 +409,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
           reconstruction_->Point3D(corr_point2D.Point3DId());
 
       tri_corrs.emplace_back(point2D_idx, corr_point2D.Point3DId());
-      point3D_ids.insert(corr_point2D.Point3DId());
+      corr_point3D_ids.insert(corr_point2D.Point3DId());
       tri_points2D.push_back(point2D.XY());
       tri_points3D.push_back(point3D.XYZ());
     }
@@ -456,7 +453,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
                               options.max_focal_length_ratio,
                               options.max_extra_param)) {
       // Previously refined camera has bogus parameters,
-      // so reset parameters and try to re-refine.
+      // so reset parameters and try to re-estimage.
       camera.SetParams(database_cache_->Camera(image.CameraId()).Params());
       abs_pose_options.estimate_focal_length = !camera.HasPriorFocalLength();
       abs_pose_refinement_options.refine_focal_length = true;
@@ -467,7 +464,10 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       abs_pose_refinement_options.refine_extra_params = false;
     }
   } else {
-    // Camera not refined before.
+    // Camera not refined before. Note that the camera parameters might have
+    // been changed before but the image was filtered, so we explicitly reset
+    // the camera parameters and try to re-estimate them.
+    camera.SetParams(database_cache_->Camera(image.CameraId()).Params());
     abs_pose_options.estimate_focal_length = !camera.HasPriorFocalLength();
     abs_pose_refinement_options.refine_focal_length = true;
     abs_pose_refinement_options.refine_extra_params = true;
@@ -593,7 +593,7 @@ IncrementalMapper::AdjustLocalBundle(
 
     for (const auto& camera_id_and_num_images_pair : num_images_per_camera) {
       const size_t num_reg_images_for_camera =
-          num_reg_images_per_camera_.at(camera_id_and_num_images_pair.first);\
+          num_reg_images_per_camera_.at(camera_id_and_num_images_pair.first);
       if (camera_id_and_num_images_pair.second < num_reg_images_for_camera) {
         ba_config.SetConstantCamera(camera_id_and_num_images_pair.first);
       }

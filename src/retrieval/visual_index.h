@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -32,10 +32,10 @@
 #ifndef COLMAP_SRC_RETRIEVAL_VISUAL_INDEX_H_
 #define COLMAP_SRC_RETRIEVAL_VISUAL_INDEX_H_
 
-#include <boost/heap/fibonacci_heap.hpp>
 #include <Eigen/Core>
+#include <boost/heap/fibonacci_heap.hpp>
 
-#include "FLANN/flann.hpp"
+#include "flann/flann.hpp"
 #include "feature/types.h"
 #include "retrieval/inverted_file.h"
 #include "retrieval/inverted_index.h"
@@ -251,8 +251,8 @@ bool VisualIndex<kDescType, kDescDim, kEmbeddingDim>::ImageIndexed(
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
-    const QueryOptions& options,
-    const DescType& descriptors, std::vector<ImageScore>* image_scores) const {
+    const QueryOptions& options, const DescType& descriptors,
+    std::vector<ImageScore>* image_scores) const {
   const GeomType geometries;
   Query(options, geometries, descriptors, image_scores);
 }

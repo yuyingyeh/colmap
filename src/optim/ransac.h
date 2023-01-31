@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -170,6 +170,10 @@ size_t RANSAC<Estimator, SupportMeasurer, Sampler>::ComputeNumTrials(
   if (denom <= 0) {
     return 1;
   }
+  // Prevent divide by zero below.
+  if (denom == 1.0) {
+    return std::numeric_limits<size_t>::max();
+  }
 
   return static_cast<size_t>(
       std::ceil(std::log(nom) / std::log(denom) * num_trials_multiplier));
@@ -226,7 +230,7 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
     // Iterate through all estimated models.
     for (const auto& sample_model : sample_models) {
       estimator.Residuals(X, Y, sample_model, &residuals);
-      CHECK_EQ(residuals.size(), X.size());
+      CHECK_EQ(residuals.size(), num_samples);
 
       const auto support = support_measurer.Evaluate(residuals, max_residual);
 
@@ -263,15 +267,11 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
   // evaluated model. Some benchmarking revealed that this approach is faster.
 
   estimator.Residuals(X, Y, report.model, &residuals);
-  CHECK_EQ(residuals.size(), X.size());
+  CHECK_EQ(residuals.size(), num_samples);
 
   report.inlier_mask.resize(num_samples);
   for (size_t i = 0; i < residuals.size(); ++i) {
-    if (residuals[i] <= max_residual) {
-      report.inlier_mask[i] = true;
-    } else {
-      report.inlier_mask[i] = false;
-    }
+    report.inlier_mask[i] = residuals[i] <= max_residual;
   }
 
   return report;

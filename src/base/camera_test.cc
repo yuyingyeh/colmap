@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -199,6 +199,28 @@ BOOST_AUTO_TEST_CASE(TestVerifyParams) {
   BOOST_CHECK_EQUAL(camera.VerifyParams(), true);
   camera.Params().resize(2);
   BOOST_CHECK_EQUAL(camera.VerifyParams(), false);
+}
+
+BOOST_AUTO_TEST_CASE(TestIsUndistorted) {
+  Camera camera;
+  camera.InitializeWithId(SimplePinholeCameraModel::model_id, 1.0, 1, 1);
+  BOOST_CHECK(camera.IsUndistorted());
+  camera.InitializeWithId(SimpleRadialCameraModel::model_id, 1.0, 1, 1);
+  BOOST_CHECK(camera.IsUndistorted());
+  camera.SetParams({1.0, 0.5, 0.5, 0.005});
+  BOOST_CHECK(!camera.IsUndistorted());
+  camera.InitializeWithId(RadialCameraModel::model_id, 1.0, 1, 1);
+  BOOST_CHECK(camera.IsUndistorted());
+  camera.SetParams({1.0, 0.5, 0.5, 0.0, 0.005});
+  BOOST_CHECK(!camera.IsUndistorted());
+  camera.InitializeWithId(OpenCVCameraModel::model_id, 1.0, 1, 1);
+  BOOST_CHECK(camera.IsUndistorted());
+  camera.SetParams({1.0, 1.0, 0.5, 0.5, 0.0, 0.0, 0.0, 0.001});
+  BOOST_CHECK(!camera.IsUndistorted());
+  camera.InitializeWithId(FullOpenCVCameraModel::model_id, 1.0, 1, 1);
+  BOOST_CHECK(camera.IsUndistorted());
+  camera.SetParams({1.0, 1.0, 0.5, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.001});
+  BOOST_CHECK(!camera.IsUndistorted());
 }
 
 BOOST_AUTO_TEST_CASE(TestHasBogusParams) {

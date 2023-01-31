@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -50,6 +50,8 @@ namespace colmap {
 #define STRINGIFY_(s) #s
 #endif  // STRINGIFY
 
+enum class CopyType { COPY, HARD_LINK, SOFT_LINK };
+
 // Append trailing slash to string if it does not yet end with a slash.
 std::string EnsureTrailingSlash(const std::string& str);
 
@@ -61,6 +63,10 @@ bool HasFileExtension(const std::string& file_name, const std::string& ext);
 void SplitFileExtension(const std::string& path, std::string* root,
                         std::string* ext);
 
+// Copy or link file from source to destination path
+void FileCopy(const std::string& src_path, const std::string& dst_path,
+              CopyType type = CopyType::COPY);
+
 // Check if the path points to an existing directory.
 bool ExistsFile(const std::string& path);
 
@@ -71,17 +77,13 @@ bool ExistsDir(const std::string& path);
 bool ExistsPath(const std::string& path);
 
 // Create the directory if it does not exist.
-void CreateDirIfNotExists(const std::string& path);
+void CreateDirIfNotExists(const std::string& path, bool recursive = false);
 
 // Extract the base name of a path, e.g., "image.jpg" for "/dir/image.jpg".
 std::string GetPathBaseName(const std::string& path);
 
 // Get the path of the parent directory for the given path.
 std::string GetParentDir(const std::string& path);
-
-// Get the relative path between from and to. Both the from and to paths must
-// exist.
-std::string GetRelativePath(const std::string& from, const std::string& to);
 
 // Join multiple paths into one path.
 template <typename... T>

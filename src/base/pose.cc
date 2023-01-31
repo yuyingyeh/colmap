@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -47,9 +47,9 @@ Eigen::Matrix3d CrossProductMatrix(const Eigen::Vector3d& vector) {
 
 void RotationMatrixToEulerAngles(const Eigen::Matrix3d& R, double* rx,
                                  double* ry, double* rz) {
-  *rx = std::atan2(-R(1, 2), R(2, 2));
-  *ry = std::asin(R(0, 2));
-  *rz = std::atan2(-R(0, 1), R(0, 0));
+  *rx = std::atan2(R(2, 1), R(2, 2));
+  *ry = std::asin(-R(2, 0));
+  *rz = std::atan2(R(1, 0), R(0, 0));
 
   *rx = IsNaN(*rx) ? 0 : *rx;
   *ry = IsNaN(*ry) ? 0 : *ry;

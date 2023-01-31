@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -116,6 +116,7 @@ class FusionOptionsTab : public OptionsWidget {
     AddOptionDouble(&options->stereo_fusion->cache_size,
                     "cache_size [gigabytes]", 0,
                     std::numeric_limits<double>::max(), 0.1, 1);
+    AddOptionBool(&options->stereo_fusion->use_cache, "use_cache");
   }
 };
 
@@ -207,8 +208,7 @@ DenseReconstructionWidget::DenseReconstructionWidget(MainWindow* main_window,
   setWindowFlags(Qt::Dialog);
   setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Dense reconstruction");
-  resize(main_window_->size().width() - 20,
-         main_window_->size().height() - 20);
+  resize(main_window_->size().width() - 20, main_window_->size().height() - 20);
 
   QGridLayout* grid = new QGridLayout(this);
 
@@ -322,12 +322,13 @@ void DenseReconstructionWidget::Undistort() {
     return;
   }
 
-  COLMAPUndistorter* undistorter =
-      new COLMAPUndistorter(UndistortCameraOptions(), *reconstruction_,
-                            *options_->image_path, workspace_path);
+  auto undistorter = std::make_unique<COLMAPUndistorter>(
+      UndistortCameraOptions(), *reconstruction_, *options_->image_path,
+      workspace_path);
   undistorter->AddCallback(Thread::FINISHED_CALLBACK,
                            [this]() { refresh_workspace_action_->trigger(); });
-  thread_control_widget_->StartThread("Undistorting...", true, undistorter);
+  thread_control_widget_->StartThread("Undistorting...", true,
+                                      std::move(undistorter));
 }
 
 void DenseReconstructionWidget::Stereo() {
@@ -337,11 +338,11 @@ void DenseReconstructionWidget::Stereo() {
   }
 
 #ifdef CUDA_ENABLED
-  mvs::PatchMatchController* processor = new mvs::PatchMatchController(
+  auto processor = std::make_unique<mvs::PatchMatchController>(
       *options_->patch_match_stereo, workspace_path, "COLMAP", "");
   processor->AddCallback(Thread::FINISHED_CALLBACK,
                          [this]() { refresh_workspace_action_->trigger(); });
-  thread_control_widget_->StartThread("Stereo...", true, processor);
+  thread_control_widget_->StartThread("Stereo...", true, std::move(processor));
 #else
   QMessageBox::critical(this, "",
                         tr("Dense stereo reconstruction requires CUDA, which "
@@ -365,14 +366,14 @@ void DenseReconstructionWidget::Fusion() {
                           tr("All images must be processed prior to fusion"));
   }
 
-  mvs::StereoFusion* fuser = new mvs::StereoFusion(
+  auto fuser = std::make_unique<mvs::StereoFusion>(
       *options_->stereo_fusion, workspace_path, "COLMAP", "", input_type);
-  fuser->AddCallback(Thread::FINISHED_CALLBACK, [this, fuser]() {
+  fuser->AddCallback(Thread::FINISHED_CALLBACK, [this, fuser = fuser.get()]() {
     fused_points_ = fuser->GetFusedPoints();
     fused_points_visibility_ = fuser->GetFusedPointsVisibility();
     write_fused_points_action_->trigger();
   });
-  thread_control_widget_->StartThread("Fusion...", true, fuser);
+  thread_control_widget_->StartThread("Fusion...", true, std::move(fuser));
 }
 
 void DenseReconstructionWidget::PoissonMeshing() {

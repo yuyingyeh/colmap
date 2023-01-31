@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -33,17 +33,17 @@
 #define COLMAP_SRC_UTIL_RANDOM_H_
 
 #include <chrono>
+#include <memory>
 #include <random>
 #include <thread>
 
 #include "util/logging.h"
-#include "util/threading.h"
 
 namespace colmap {
 
-extern thread_local std::mt19937* PRNG;
+extern thread_local std::unique_ptr<std::mt19937> PRNG;
 
-static int kDefaultPRNGSeed = 0;
+extern int kDefaultPRNGSeed;
 
 // Initialize the PRNG with the given seed.
 //

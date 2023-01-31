@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -53,26 +53,26 @@ namespace config = boost::program_options;
 namespace colmap {
 
 OptionManager::OptionManager(bool add_project_options) {
-  project_path.reset(new std::string());
-  database_path.reset(new std::string());
-  image_path.reset(new std::string());
+  project_path = std::make_shared<std::string>();
+  database_path = std::make_shared<std::string>();
+  image_path = std::make_shared<std::string>();
 
-  image_reader.reset(new ImageReaderOptions());
-  sift_extraction.reset(new SiftExtractionOptions());
-  sift_matching.reset(new SiftMatchingOptions());
-  exhaustive_matching.reset(new ExhaustiveMatchingOptions());
-  sequential_matching.reset(new SequentialMatchingOptions());
-  vocab_tree_matching.reset(new VocabTreeMatchingOptions());
-  spatial_matching.reset(new SpatialMatchingOptions());
-  transitive_matching.reset(new TransitiveMatchingOptions());
-  image_pairs_matching.reset(new ImagePairsMatchingOptions());
-  bundle_adjustment.reset(new BundleAdjustmentOptions());
-  mapper.reset(new IncrementalMapperOptions());
-  patch_match_stereo.reset(new mvs::PatchMatchOptions());
-  stereo_fusion.reset(new mvs::StereoFusionOptions());
-  poisson_meshing.reset(new mvs::PoissonMeshingOptions());
-  delaunay_meshing.reset(new mvs::DelaunayMeshingOptions());
-  render.reset(new RenderOptions());
+  image_reader = std::make_shared<ImageReaderOptions>();
+  sift_extraction = std::make_shared<SiftExtractionOptions>();
+  sift_matching = std::make_shared<SiftMatchingOptions>();
+  exhaustive_matching = std::make_shared<ExhaustiveMatchingOptions>();
+  sequential_matching = std::make_shared<SequentialMatchingOptions>();
+  vocab_tree_matching = std::make_shared<VocabTreeMatchingOptions>();
+  spatial_matching = std::make_shared<SpatialMatchingOptions>();
+  transitive_matching = std::make_shared<TransitiveMatchingOptions>();
+  image_pairs_matching = std::make_shared<ImagePairsMatchingOptions>();
+  bundle_adjustment = std::make_shared<BundleAdjustmentOptions>();
+  mapper = std::make_shared<IncrementalMapperOptions>();
+  patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
+  stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
+  poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
+  delaunay_meshing = std::make_shared<mvs::DelaunayMeshingOptions>();
+  render = std::make_shared<RenderOptions>();
 
   Reset();
 
@@ -80,7 +80,7 @@ OptionManager::OptionManager(bool add_project_options) {
 
   AddRandomOptions();
   AddLogOptions();
-  
+
   if (add_project_options) {
     desc_->add_options()("project_path", config::value<std::string>());
   }
@@ -240,6 +240,8 @@ void OptionManager::AddExtractionOptions() {
                               &image_reader->single_camera);
   AddAndRegisterDefaultOption("ImageReader.single_camera_per_folder",
                               &image_reader->single_camera_per_folder);
+  AddAndRegisterDefaultOption("ImageReader.single_camera_per_image",
+                              &image_reader->single_camera_per_image);
   AddAndRegisterDefaultOption("ImageReader.existing_camera_id",
                               &image_reader->existing_camera_id);
   AddAndRegisterDefaultOption("ImageReader.camera_params",
@@ -318,6 +320,10 @@ void OptionManager::AddMatchingOptions() {
                               &sift_matching->multiple_models);
   AddAndRegisterDefaultOption("SiftMatching.guided_matching",
                               &sift_matching->guided_matching);
+  AddAndRegisterDefaultOption("SiftMatching.planar_scene",
+                              &sift_matching->planar_scene);
+  AddAndRegisterDefaultOption("SiftMatching.compute_relative_pose",
+                              &sift_matching->compute_relative_pose);
 }
 
 void OptionManager::AddExhaustiveMatchingOptions() {
@@ -504,6 +510,8 @@ void OptionManager::AddMapperOptions() {
       &mapper->ba_min_num_residuals_for_multi_threading);
   AddAndRegisterDefaultOption("Mapper.ba_local_num_images",
                               &mapper->ba_local_num_images);
+  AddAndRegisterDefaultOption("Mapper.ba_local_function_tolerance",
+                              &mapper->ba_local_function_tolerance);
   AddAndRegisterDefaultOption("Mapper.ba_local_max_num_iterations",
                               &mapper->ba_local_max_num_iterations);
   AddAndRegisterDefaultOption("Mapper.ba_global_use_pba",
@@ -518,6 +526,8 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_global_images_freq);
   AddAndRegisterDefaultOption("Mapper.ba_global_points_freq",
                               &mapper->ba_global_points_freq);
+  AddAndRegisterDefaultOption("Mapper.ba_global_function_tolerance",
+                              &mapper->ba_global_function_tolerance);
   AddAndRegisterDefaultOption("Mapper.ba_global_max_num_iterations",
                               &mapper->ba_global_max_num_iterations);
   AddAndRegisterDefaultOption("Mapper.ba_global_max_refinements",
@@ -638,6 +648,8 @@ void OptionManager::AddPatchMatchStereoOptions() {
       &patch_match_stereo->filter_geom_consistency_max_cost);
   AddAndRegisterDefaultOption("PatchMatchStereo.cache_size",
                               &patch_match_stereo->cache_size);
+  AddAndRegisterDefaultOption("PatchMatchStereo.allow_missing_files",
+                              &patch_match_stereo->allow_missing_files);
   AddAndRegisterDefaultOption("PatchMatchStereo.write_consistency_graph",
                               &patch_match_stereo->write_consistency_graph);
 }
@@ -648,6 +660,10 @@ void OptionManager::AddStereoFusionOptions() {
   }
   added_stereo_fusion_options_ = true;
 
+  AddAndRegisterDefaultOption("StereoFusion.mask_path",
+                              &stereo_fusion->mask_path);
+  AddAndRegisterDefaultOption("StereoFusion.num_threads",
+                              &stereo_fusion->num_threads);
   AddAndRegisterDefaultOption("StereoFusion.max_image_size",
                               &stereo_fusion->max_image_size);
   AddAndRegisterDefaultOption("StereoFusion.min_num_pixels",
@@ -666,6 +682,8 @@ void OptionManager::AddStereoFusionOptions() {
                               &stereo_fusion->check_num_images);
   AddAndRegisterDefaultOption("StereoFusion.cache_size",
                               &stereo_fusion->cache_size);
+  AddAndRegisterDefaultOption("StereoFusion.use_cache",
+                              &stereo_fusion->use_cache);
 }
 
 void OptionManager::AddPoissonMeshingOptions() {
@@ -693,6 +711,8 @@ void OptionManager::AddDelaunayMeshingOptions() {
                               &delaunay_meshing->max_proj_dist);
   AddAndRegisterDefaultOption("DelaunayMeshing.max_depth_dist",
                               &delaunay_meshing->max_depth_dist);
+  AddAndRegisterDefaultOption("DelaunayMeshing.visibility_sigma",
+                              &delaunay_meshing->visibility_sigma);
   AddAndRegisterDefaultOption("DelaunayMeshing.distance_sigma_factor",
                               &delaunay_meshing->distance_sigma_factor);
   AddAndRegisterDefaultOption("DelaunayMeshing.quality_regularization",
@@ -729,7 +749,7 @@ void OptionManager::Reset() {
   const bool kResetPaths = true;
   ResetOptions(kResetPaths);
 
-  desc_.reset(new boost::program_options::options_description());
+  desc_ = std::make_shared<boost::program_options::options_description>();
 
   options_bool_.clear();
   options_int_.clear();
@@ -813,7 +833,9 @@ bool OptionManager::Check() {
   if (poisson_meshing) success = success && poisson_meshing->Check();
   if (delaunay_meshing) success = success && delaunay_meshing->Check();
 
+#ifdef GUI_ENABLED
   if (render) success = success && render->Check();
+#endif
 
   return success;
 }

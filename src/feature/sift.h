@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -161,6 +161,12 @@ struct SiftMatchingOptions {
   // Whether to perform guided matching, if geometric verification succeeds.
   bool guided_matching = false;
 
+  // Force Homography use for Two-view Geometry (can help for planar scenes)
+  bool planar_scene = false;
+
+  // Whether to estimate the relative pose between the two images and save them to the DB.
+  bool compute_relative_pose = false;
+
   bool Check() const;
 };
 
@@ -256,4 +262,3 @@ void MatchGuidedSiftFeaturesGPU(const SiftMatchingOptions& match_options,
 }  // namespace colmap
 
 #endif  // COLMAP_SRC_FEATURE_SIFT_H_
-

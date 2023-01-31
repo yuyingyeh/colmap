@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -95,8 +95,7 @@ void ExtractTopScaleFeatures(FeatureKeypoints* keypoints,
     scales.emplace_back(i, (*keypoints)[i].ComputeScale());
   }
 
-  std::partial_sort(scales.begin(), scales.begin() + num_features,
-                    scales.end(),
+  std::partial_sort(scales.begin(), scales.begin() + num_features, scales.end(),
                     [](const std::pair<size_t, float> scale1,
                        const std::pair<size_t, float> scale2) {
                       return scale1.second > scale2.second;

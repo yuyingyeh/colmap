@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -79,6 +79,20 @@ BOOST_AUTO_TEST_CASE(TestEulerAnglesY) {
 BOOST_AUTO_TEST_CASE(TestEulerAnglesZ) {
   const double rx = 0;
   const double ry = 0;
+  const double rz = 0.3;
+  double rxx, ryy, rzz;
+
+  RotationMatrixToEulerAngles(EulerAnglesToRotationMatrix(rx, ry, rz), &rxx,
+                              &ryy, &rzz);
+
+  BOOST_CHECK_CLOSE(rx, rxx, 1e-6);
+  BOOST_CHECK_CLOSE(ry, ryy, 1e-6);
+  BOOST_CHECK_CLOSE(rz, rzz, 1e-6);
+}
+
+BOOST_AUTO_TEST_CASE(TestEulerAnglesXYZ) {
+  const double rx = 0.1;
+  const double ry = 0.2;
   const double rz = 0.3;
   double rxx, ryy, rzz;
 

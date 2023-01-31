@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -536,7 +536,7 @@ void EPNPEstimator::ComputePcs() {
 }
 
 void EPNPEstimator::SolveForSign() {
-  if (pcs_[0][2] < 0.0 || pcs_[0][2] > 0.0) {
+  if (pcs_[0][2] < 0.0) {
     for (int i = 0; i < 4; ++i) {
       ccs_[i] = -ccs_[i];
     }

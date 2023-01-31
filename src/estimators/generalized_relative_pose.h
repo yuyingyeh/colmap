@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -83,8 +83,8 @@ class GR6PEstimator {
 
   // Calculate the squared Sampson error between corresponding points.
   static void Residuals(const std::vector<X_t>& points1,
-                        const std::vector<Y_t>& points2,
-                        const M_t& proj_matrix, std::vector<double>* residuals);
+                        const std::vector<Y_t>& points2, const M_t& proj_matrix,
+                        std::vector<double>* residuals);
 };
 
 }  // namespace colmap

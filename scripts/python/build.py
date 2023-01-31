@@ -1,4 +1,4 @@
-# Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -39,7 +39,7 @@ import argparse
 import zipfile
 import hashlib
 import ssl
-import urllib.request
+import requests
 import subprocess
 import multiprocessing
 
@@ -84,7 +84,7 @@ def parse_args():
                              "Computing Toolkit/CUDA/v8.0")
     parser.add_argument("--cuda_archs", default="Auto",
                         help="List of CUDA architectures for which to generate "
-                             "code, e.g., Auto, All, Maxwell, Pascal, ...")
+                             "code, e.g., all, all-major, native, 50, 75, etc.")
     parser.add_argument("--with_suite_sparse",
                         dest="with_suite_sparse", action="store_true")
     parser.add_argument("--without_suite_sparse",
@@ -185,7 +185,9 @@ def check_md5_hash(path, md5_hash):
 
 def download_zipfile(url, archive_path, unzip_path, md5_hash):
     if not os.path.exists(archive_path):
-        urllib.request.urlretrieve(url, archive_path)
+        r = requests.get(url)
+        with open(archive_path, 'wb') as outfile:
+            outfile.write(r.content)
     check_md5_hash(archive_path, md5_hash)
     with zipfile.ZipFile(archive_path, "r") as fid:
         fid.extractall(unzip_path)
@@ -221,10 +223,10 @@ def build_eigen(args):
     if os.path.exists(path):
         return
 
-    url = "https://bitbucket.org/eigen/eigen/get/3.3.7.zip"
+    url = "http://gitlab.com/libeigen/eigen/-/archive/3.3.7/eigen-3.3.7.zip"
     archive_path = os.path.join(args.download_path, "eigen-3.3.7.zip")
     download_zipfile(url, archive_path, args.build_path,
-                     "0d9c8496922d5c07609b9f3585f00e49")
+                     "888aab45512cc0c734b3e8f60280daba")
     shutil.move(glob.glob(os.path.join(args.build_path, "eigen-*"))[0], path)
 
     build_cmake_project(args, os.path.join(path, "__build__"))
@@ -236,9 +238,8 @@ def build_freeimage(args):
         return
 
     if PLATFORM_IS_WINDOWS:
-        url = "https://kent.dl.sourceforge.net/project/freeimage/" \
-              "Binary%20Distribution/3.18.0/FreeImage3180Win32Win64.zip"
-        archive_path = os.path.join(args.download_path, "freeimage-3.18.0.zip")
+        url = "http://downloads.sourceforge.net/freeimage/FreeImage3180Win32Win64.zip"
+        archive_path = os.path.join(args.download_path, "FreeImage3180Win32Win64.zip")
         download_zipfile(url, archive_path, args.build_path,
                          "393d3df75b14cbcb4887da1c395596e2")
         shutil.move(os.path.join(args.build_path, "FreeImage"), path)
@@ -252,9 +253,8 @@ def build_freeimage(args):
             os.path.join(path, "Dist/x64/FreeImage.dll"),
             os.path.join(args.install_path, "lib/FreeImage.dll"))
     else:
-        url = "https://kent.dl.sourceforge.net/project/freeimage/" \
-              "Source%20Distribution/3.18.0/FreeImage3180.zip"
-        archive_path = os.path.join(args.download_path, "freeimage-3.18.0.zip")
+        url = "http://downloads.sourceforge.net/freeimage/FreeImage3180.zip"
+        archive_path = os.path.join(args.download_path, "FreeImage3180.zip")
         download_zipfile(url, archive_path, args.build_path,
                          "f8ba138a3be233a3eed9c456e42e2578")
         shutil.move(os.path.join(args.build_path, "FreeImage"), path)
@@ -304,8 +304,7 @@ def build_glew(args):
     if os.path.exists(path):
         return
 
-    url = "https://kent.dl.sourceforge.net/project/glew/" \
-          "glew/2.1.0/glew-2.1.0.zip"
+    url = "https://github.com/nigels-com/glew/releases/download/glew-2.1.0/glew-2.1.0.zip"
     archive_path = os.path.join(args.download_path, "glew-2.1.0.zip")
     download_zipfile(url, archive_path, args.build_path,
                      "dff2939fd404d054c1036cc0409d19f1")
@@ -386,11 +385,11 @@ def build_ceres_solver(args):
     if os.path.exists(path):
         return
 
-    url = "https://github.com/ceres-solver/ceres-solver/archive/1.14.0.zip"
-    archive_path = os.path.join(args.download_path, "ceres-solver-1.14.0.zip")
+    url = "https://github.com/ceres-solver/ceres-solver/archive/2.1.0.zip"
+    archive_path = os.path.join(args.download_path, "ceres-solver-2.1.0.zip")
     download_zipfile(url, archive_path, args.build_path,
-                     "26b255b7a9f330bbc1def3b839724a2a")
-    shutil.move(os.path.join(args.build_path, "ceres-solver-1.14.0"), path)
+                     "0d4fbfd9d381b85a362365c8d5f468c8")
+    shutil.move(os.path.join(args.build_path, "ceres-solver-2.1.0"), path)
 
     extra_config_args = [
         "-DBUILD_TESTING=OFF",
@@ -441,7 +440,7 @@ def build_colmap(args):
         extra_config_args.append("-DCUDA_ENABLED=OFF")
 
     if args.cuda_archs:
-        extra_config_args.append("-DCUDA_ARCHS={}".format(args.cuda_archs))
+        extra_config_args.append("-DCMAKE_CUDA_ARCHITECTURES={}".format(args.cuda_archs))
 
     if args.with_opengl:
         extra_config_args.append("-DOPENGL_ENABLED=ON")

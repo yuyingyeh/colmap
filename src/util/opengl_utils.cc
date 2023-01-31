@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,13 +31,13 @@
 
 #include "util/opengl_utils.h"
 
-#include <QApplication>
-
 #include "util/logging.h"
 
 namespace colmap {
 
-OpenGLContextManager::OpenGLContextManager()
+#ifdef GUI_ENABLED
+OpenGLContextManager::OpenGLContextManager(int opengl_major_version,
+                                           int opengl_minor_version)
     : parent_thread_(QThread::currentThread()),
       current_thread_(nullptr),
       make_current_action_(new QAction(this)) {
@@ -46,8 +46,8 @@ OpenGLContextManager::OpenGLContextManager()
 
   QSurfaceFormat format;
   format.setDepthBufferSize(24);
-  format.setMajorVersion(3);
-  format.setMinorVersion(2);
+  format.setMajorVersion(opengl_major_version);
+  format.setMinorVersion(opengl_minor_version);
   format.setSamples(4);
   format.setProfile(QSurfaceFormat::CompatibilityProfile);
   context_.setFormat(format);
@@ -57,32 +57,21 @@ OpenGLContextManager::OpenGLContextManager()
   context_.makeCurrent(&surface_);
   CHECK(context_.isValid()) << "Could not create valid OpenGL context";
 
-  connect(make_current_action_, &QAction::triggered, this,
-          [this]() {
-            CHECK_NOTNULL(current_thread_);
-            context_.doneCurrent();
-            context_.moveToThread(current_thread_);
-          },
-          Qt::BlockingQueuedConnection);
+  connect(
+      make_current_action_, &QAction::triggered, this,
+      [this]() {
+        CHECK_NOTNULL(current_thread_);
+        context_.doneCurrent();
+        context_.moveToThread(current_thread_);
+      },
+      Qt::BlockingQueuedConnection);
 }
 
-void OpenGLContextManager::MakeCurrent() {
+bool OpenGLContextManager::MakeCurrent() {
   current_thread_ = QThread::currentThread();
   make_current_action_->trigger();
   context_.makeCurrent(&surface_);
-  CHECK(context_.isValid()) << "Could not make current valid OpenGL context";
-}
-
-bool OpenGLContextManager::HasOpenGL() {
-#ifdef OPENGL_ENABLED
-  QOffscreenSurface surface;
-  QOpenGLContext context;
-  surface.create();
-  context.create();
-  return surface.isValid() && context.isValid();
-#else   // OPENGL_ENABLED
-  return false;
-#endif  // OPENGL_ENABLED
+  return context_.isValid();
 }
 
 void RunThreadWithOpenGLContext(Thread* thread) {
@@ -127,5 +116,7 @@ void GLError(const char* file, const int line) {
     error_code = glGetError();
   }
 }
+
+#endif
 
 }  // namespace colmap

@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -113,6 +113,9 @@ class Camera {
   // Check whether parameters are valid, i.e. the parameter vector has
   // the correct dimensions that match the specified camera model.
   bool VerifyParams() const;
+
+  // Check whether camera is already undistorted
+  bool IsUndistorted() const;
 
   // Check whether camera has bogus parameters.
   bool HasBogusParams(const double min_focal_length_ratio,

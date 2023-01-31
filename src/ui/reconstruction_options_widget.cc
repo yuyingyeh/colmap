@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -102,7 +102,7 @@ MapperInitializationOptionsWidget::MapperInitializationOptionsWidget(
   AddOptionDouble(&options->mapper->mapper.init_min_tri_angle,
                   "init_min_tri_angle [deg]");
   AddOptionInt(&options->mapper->mapper.init_max_reg_trials,
-                  "init_max_reg_trials", 1);
+               "init_max_reg_trials", 1);
 }
 
 MapperBundleAdjustmentOptionsWidget::MapperBundleAdjustmentOptionsWidget(

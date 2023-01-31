@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -37,8 +37,8 @@
 #include <vector>
 
 #include <Eigen/Core>
+#include <sqlite3.h>
 
-#include "SQLite/sqlite3.h"
 #include "base/camera.h"
 #include "base/image.h"
 #include "estimators/two_view_geometry.h"
@@ -201,6 +201,21 @@ class Database {
   void DeleteInlierMatches(const image_t image_id1,
                            const image_t image_id2) const;
 
+  // Clear all database tables
+  void ClearAllTables() const;
+
+  // Clear the entire cameras table
+  void ClearCameras() const;
+
+  // Clear the entire images, keypoints, and descriptors tables
+  void ClearImages() const;
+
+  // Clear the entire descriptors table
+  void ClearDescriptors() const;
+
+  // Clear the entire keypoints table
+  void ClearKeypoints() const;
+
   // Clear the entire matches table.
   void ClearMatches() const;
 
@@ -253,6 +268,10 @@ class Database {
   size_t MaxColumn(const std::string& column, const std::string& table) const;
 
   sqlite3* database_ = nullptr;
+
+  // Check if elements got removed from the database to only apply
+  // the VACUUM command in such case
+  mutable bool database_cleared_ = false;
 
   // Ensure that only one database object at a time updates the schema of a
   // database. Since the schema is updated every time a database is opened, this
@@ -313,6 +332,10 @@ class Database {
   sqlite3_stmt* sql_stmt_delete_two_view_geometry_ = nullptr;
 
   // clear_*
+  sqlite3_stmt* sql_stmt_clear_cameras_ = nullptr;
+  sqlite3_stmt* sql_stmt_clear_images_ = nullptr;
+  sqlite3_stmt* sql_stmt_clear_descriptors_ = nullptr;
+  sqlite3_stmt* sql_stmt_clear_keypoints_ = nullptr;
   sqlite3_stmt* sql_stmt_clear_matches_ = nullptr;
   sqlite3_stmt* sql_stmt_clear_two_view_geometries_ = nullptr;
 };

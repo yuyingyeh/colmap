@@ -1,5 +1,5 @@
 if(NOT IS_MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wno-narrowing")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-narrowing")
 endif()
 
 if(NOT SIMD_ENABLED)
@@ -9,7 +9,7 @@ if(NOT SIMD_ENABLED)
 endif()
 
 if(CUDA_ENABLED)
-    COLMAP_ADD_STATIC_CUDA_LIBRARY(pba
+    COLMAP_ADD_CUDA_LIBRARY(pba
         ConfigBA.cpp
         ConfigBA.h
         CuTexImage.cpp
@@ -28,7 +28,7 @@ if(CUDA_ENABLED)
 else()
     add_definitions("-DPBA_NO_GPU")
 
-    COLMAP_ADD_STATIC_LIBRARY(pba
+    COLMAP_ADD_LIBRARY(pba
         ConfigBA.cpp
         ConfigBA.h
         DataInterface.h

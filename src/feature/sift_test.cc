@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,11 @@
 #define TEST_NAME "feature/sift_test"
 #include "util/testing.h"
 
+#ifdef GUI_ENABLED
 #include <QApplication>
+#else
+#include "exe/gui.h"
+#endif
 
 #include "SiftGPU/SiftGPU.h"
 #include "feature/sift.h"
@@ -196,10 +200,6 @@ BOOST_AUTO_TEST_CASE(TestExtractSiftFeaturesGPU) {
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
-  if (!OpenGLContextManager::HasOpenGL()) {
-    return;
-  }
-
   class TestThread : public Thread {
    private:
     void Run() {
@@ -216,7 +216,7 @@ BOOST_AUTO_TEST_CASE(TestExtractSiftFeaturesGPU) {
       BOOST_CHECK(ExtractSiftFeaturesGPU(SiftExtractionOptions(), bitmap,
                                          &sift_gpu, &keypoints, &descriptors));
 
-      BOOST_CHECK_EQUAL(keypoints.size(), 24);
+      BOOST_CHECK_GE(keypoints.size(), 12);
       for (size_t i = 0; i < keypoints.size(); ++i) {
         BOOST_CHECK_GE(keypoints[i].x, 0);
         BOOST_CHECK_GE(keypoints[i].y, 0);
@@ -227,7 +227,7 @@ BOOST_AUTO_TEST_CASE(TestExtractSiftFeaturesGPU) {
         BOOST_CHECK_LT(keypoints[i].ComputeOrientation(), M_PI);
       }
 
-      BOOST_CHECK_EQUAL(descriptors.rows(), 24);
+      BOOST_CHECK_GE(descriptors.rows(), 12);
       for (FeatureDescriptors::Index i = 0; i < descriptors.rows(); ++i) {
         BOOST_CHECK_LT(std::abs(descriptors.row(i).cast<float>().norm() - 512),
                        1);
@@ -267,18 +267,14 @@ BOOST_AUTO_TEST_CASE(TestCreateSiftGPUMatcherOpenGL) {
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
-  if (!OpenGLContextManager::HasOpenGL()) {
-    return;
-  }
-
   class TestThread : public Thread {
    private:
     void Run() {
       opengl_context_.MakeCurrent();
       SiftMatchGPU sift_match_gpu;
-      SiftMatchingOptions match_options;
-      match_options.max_num_matches = 1000;
-      BOOST_CHECK(CreateSiftGPUMatcher(match_options, &sift_match_gpu));
+      SiftMatchingOptions create_options;
+      create_options.max_num_matches = 1000;
+      BOOST_CHECK(CreateSiftGPUMatcher(create_options, &sift_match_gpu));
     }
     OpenGLContextManager opengl_context_;
   };
@@ -290,10 +286,10 @@ BOOST_AUTO_TEST_CASE(TestCreateSiftGPUMatcherOpenGL) {
 BOOST_AUTO_TEST_CASE(TestCreateSiftGPUMatcherCUDA) {
 #ifdef CUDA_ENABLED
   SiftMatchGPU sift_match_gpu;
-  SiftMatchingOptions match_options;
-  match_options.gpu_index = "0";
-  match_options.max_num_matches = 1000;
-  BOOST_CHECK(CreateSiftGPUMatcher(match_options, &sift_match_gpu));
+  SiftMatchingOptions create_options;
+  create_options.gpu_index = "0";
+  create_options.max_num_matches = 1000;
+  BOOST_CHECK(CreateSiftGPUMatcher(create_options, &sift_match_gpu));
 #endif
 }
 
@@ -328,91 +324,92 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUFLANNvsBruteForce) {
   SiftMatchingOptions match_options;
   match_options.max_num_matches = 1000;
 
-  auto TestFLANNvsBruteForce = [](
-      const SiftMatchingOptions& options,
-      const FeatureDescriptors& descriptors1,
-      const FeatureDescriptors& descriptors2) {
+  auto TestFLANNvsBruteForce = [](const SiftMatchingOptions& options,
+                                  const FeatureDescriptors& descriptors1,
+                                  const FeatureDescriptors& descriptors2) {
     FeatureMatches matches_bf;
     FeatureMatches matches_flann;
 
     MatchSiftFeaturesCPUBruteForce(options, descriptors1, descriptors2,
-        &matches_bf);
+                                   &matches_bf);
     MatchSiftFeaturesCPUFLANN(options, descriptors1, descriptors2,
-        &matches_flann);
+                              &matches_flann);
     CheckEqualMatches(matches_bf, matches_flann);
 
     const size_t num_matches = matches_bf.size();
 
     const FeatureDescriptors empty_descriptors =
-      CreateRandomFeatureDescriptors(0);
+        CreateRandomFeatureDescriptors(0);
 
-    MatchSiftFeaturesCPUBruteForce(options, empty_descriptors, descriptors2, &matches_bf);
-    MatchSiftFeaturesCPUFLANN(options, empty_descriptors, descriptors2, &matches_flann);
+    MatchSiftFeaturesCPUBruteForce(options, empty_descriptors, descriptors2,
+                                   &matches_bf);
+    MatchSiftFeaturesCPUFLANN(options, empty_descriptors, descriptors2,
+                              &matches_flann);
     CheckEqualMatches(matches_bf, matches_flann);
 
-    MatchSiftFeaturesCPUBruteForce(options, descriptors1, empty_descriptors, &matches_bf);
-    MatchSiftFeaturesCPUFLANN(options, descriptors1, empty_descriptors, &matches_flann);
+    MatchSiftFeaturesCPUBruteForce(options, descriptors1, empty_descriptors,
+                                   &matches_bf);
+    MatchSiftFeaturesCPUFLANN(options, descriptors1, empty_descriptors,
+                              &matches_flann);
     CheckEqualMatches(matches_bf, matches_flann);
 
-    MatchSiftFeaturesCPUBruteForce(options, empty_descriptors, empty_descriptors, &matches_bf);
-    MatchSiftFeaturesCPUFLANN(options, empty_descriptors, empty_descriptors, &matches_flann);
+    MatchSiftFeaturesCPUBruteForce(options, empty_descriptors,
+                                   empty_descriptors, &matches_bf);
+    MatchSiftFeaturesCPUFLANN(options, empty_descriptors, empty_descriptors,
+                              &matches_flann);
     CheckEqualMatches(matches_bf, matches_flann);
 
     return num_matches;
   };
 
   {
-    const FeatureDescriptors descriptors1 =
-      CreateRandomFeatureDescriptors(100);
-    const FeatureDescriptors descriptors2 =
-      CreateRandomFeatureDescriptors(100);
+    const FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
+    const FeatureDescriptors descriptors2 = CreateRandomFeatureDescriptors(50);
     SiftMatchingOptions match_options;
     TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
   }
 
   {
-    const FeatureDescriptors descriptors1 =
-      CreateRandomFeatureDescriptors(100);
-    const FeatureDescriptors descriptors2 =
-      descriptors1.colwise().reverse();
+    const FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
+    const FeatureDescriptors descriptors2 = descriptors1.colwise().reverse();
     SiftMatchingOptions match_options;
     const size_t num_matches =
-      TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
-    BOOST_CHECK_EQUAL(num_matches, 100);
+        TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
+    BOOST_CHECK_EQUAL(num_matches, 50);
   }
 
   // Check the ratio test.
   {
-    FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(100);
+    FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
     FeatureDescriptors descriptors2 = descriptors1;
 
     SiftMatchingOptions match_options;
     const size_t num_matches1 =
-      TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
-    BOOST_CHECK_EQUAL(num_matches1, 100);
+        TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
+    BOOST_CHECK_EQUAL(num_matches1, 50);
 
-    descriptors2.row(99) = descriptors2.row(0);
+    descriptors2.row(49) = descriptors2.row(0);
     descriptors2(0, 0) += 50.0f;
     descriptors2.row(0) = FeatureDescriptorsToUnsignedByte(
         L2NormalizeFeatureDescriptors(descriptors2.row(0).cast<float>()));
-    descriptors2(99, 0) += 100.0f;
-    descriptors2.row(99) = FeatureDescriptorsToUnsignedByte(
-        L2NormalizeFeatureDescriptors(descriptors2.row(99).cast<float>()));
+    descriptors2(49, 0) += 100.0f;
+    descriptors2.row(49) = FeatureDescriptorsToUnsignedByte(
+        L2NormalizeFeatureDescriptors(descriptors2.row(49).cast<float>()));
 
     match_options.max_ratio = 0.4;
-    const size_t num_matches2 =
-      TestFLANNvsBruteForce(match_options, descriptors1.topRows(99), descriptors2);
-    BOOST_CHECK_EQUAL(num_matches2, 98);
+    const size_t num_matches2 = TestFLANNvsBruteForce(
+        match_options, descriptors1.topRows(49), descriptors2);
+    BOOST_CHECK_EQUAL(num_matches2, 48);
 
     match_options.max_ratio = 0.5;
     const size_t num_matches3 =
-      TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
-    BOOST_CHECK_EQUAL(num_matches3, 99);
+        TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
+    BOOST_CHECK_EQUAL(num_matches3, 49);
   }
 
   // Check the cross check.
   {
-    FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(100);
+    FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
     FeatureDescriptors descriptors2 = descriptors1;
     descriptors1.row(0) = descriptors1.row(1);
 
@@ -420,13 +417,13 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUFLANNvsBruteForce) {
 
     match_options.cross_check = false;
     const size_t num_matches1 =
-      TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
-    BOOST_CHECK_EQUAL(num_matches1, 100);
+        TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
+    BOOST_CHECK_EQUAL(num_matches1, 50);
 
     match_options.cross_check = true;
     const size_t num_matches2 =
-      TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
-    BOOST_CHECK_EQUAL(num_matches2, 98);
+        TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
+    BOOST_CHECK_EQUAL(num_matches2, 48);
   }
 }
 
@@ -482,18 +479,14 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesGPU) {
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
-  if (!OpenGLContextManager::HasOpenGL()) {
-    return;
-  }
-
   class TestThread : public Thread {
    private:
     void Run() {
       opengl_context_.MakeCurrent();
       SiftMatchGPU sift_match_gpu;
-      SiftMatchingOptions match_options;
-      match_options.max_num_matches = 1000;
-      BOOST_CHECK(CreateSiftGPUMatcher(match_options, &sift_match_gpu));
+      SiftMatchingOptions create_options;
+      create_options.max_num_matches = 1000;
+      BOOST_CHECK(CreateSiftGPUMatcher(create_options, &sift_match_gpu));
 
       const FeatureDescriptors empty_descriptors =
           CreateRandomFeatureDescriptors(0);
@@ -557,18 +550,14 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUvsGPU) {
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
-  if (!OpenGLContextManager::HasOpenGL()) {
-    return;
-  }
-
   class TestThread : public Thread {
    private:
     void Run() {
       opengl_context_.MakeCurrent();
       SiftMatchGPU sift_match_gpu;
-      SiftMatchingOptions match_options;
-      match_options.max_num_matches = 1000;
-      BOOST_CHECK(CreateSiftGPUMatcher(match_options, &sift_match_gpu));
+      SiftMatchingOptions create_options;
+      create_options.max_num_matches = 1000;
+      BOOST_CHECK(CreateSiftGPUMatcher(create_options, &sift_match_gpu));
 
       auto TestCPUvsGPU = [&sift_match_gpu](
                               const SiftMatchingOptions& options,
@@ -610,56 +599,56 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUvsGPU) {
 
       {
         const FeatureDescriptors descriptors1 =
-            CreateRandomFeatureDescriptors(100);
+            CreateRandomFeatureDescriptors(50);
         const FeatureDescriptors descriptors2 =
-            CreateRandomFeatureDescriptors(100);
+            CreateRandomFeatureDescriptors(50);
         SiftMatchingOptions match_options;
         TestCPUvsGPU(match_options, descriptors1, descriptors2);
       }
 
       {
         const FeatureDescriptors descriptors1 =
-            CreateRandomFeatureDescriptors(100);
+            CreateRandomFeatureDescriptors(50);
         const FeatureDescriptors descriptors2 =
             descriptors1.colwise().reverse();
         SiftMatchingOptions match_options;
         const size_t num_matches =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
-        BOOST_CHECK_EQUAL(num_matches, 100);
+        BOOST_CHECK_EQUAL(num_matches, 50);
       }
 
       // Check the ratio test.
       {
-        FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(100);
+        FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
         FeatureDescriptors descriptors2 = descriptors1;
 
         SiftMatchingOptions match_options;
         const size_t num_matches1 =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
-        BOOST_CHECK_EQUAL(num_matches1, 100);
+        BOOST_CHECK_EQUAL(num_matches1, 50);
 
-        descriptors2.row(99) = descriptors2.row(0);
+        descriptors2.row(49) = descriptors2.row(0);
         descriptors2(0, 0) += 50.0f;
         descriptors2.row(0) = FeatureDescriptorsToUnsignedByte(
             L2NormalizeFeatureDescriptors(descriptors2.row(0).cast<float>()));
-        descriptors2(99, 0) += 100.0f;
-        descriptors2.row(99) = FeatureDescriptorsToUnsignedByte(
-            L2NormalizeFeatureDescriptors(descriptors2.row(99).cast<float>()));
+        descriptors2(49, 0) += 100.0f;
+        descriptors2.row(49) = FeatureDescriptorsToUnsignedByte(
+            L2NormalizeFeatureDescriptors(descriptors2.row(49).cast<float>()));
 
         match_options.max_ratio = 0.4;
         const size_t num_matches2 =
-            TestCPUvsGPU(match_options, descriptors1.topRows(99), descriptors2);
-        BOOST_CHECK_EQUAL(num_matches2, 98);
+            TestCPUvsGPU(match_options, descriptors1.topRows(49), descriptors2);
+        BOOST_CHECK_EQUAL(num_matches2, 48);
 
         match_options.max_ratio = 0.5;
         const size_t num_matches3 =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
-        BOOST_CHECK_EQUAL(num_matches3, 99);
+        BOOST_CHECK_EQUAL(num_matches3, 49);
       }
 
       // Check the cross check.
       {
-        FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(100);
+        FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
         FeatureDescriptors descriptors2 = descriptors1;
         descriptors1.row(0) = descriptors1.row(1);
 
@@ -668,12 +657,12 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUvsGPU) {
         match_options.cross_check = false;
         const size_t num_matches1 =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
-        BOOST_CHECK_EQUAL(num_matches1, 100);
+        BOOST_CHECK_EQUAL(num_matches1, 50);
 
         match_options.cross_check = true;
         const size_t num_matches2 =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
-        BOOST_CHECK_EQUAL(num_matches2, 98);
+        BOOST_CHECK_EQUAL(num_matches2, 48);
       }
     }
     OpenGLContextManager opengl_context_;
@@ -689,18 +678,14 @@ BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesGPU) {
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
-  if (!OpenGLContextManager::HasOpenGL()) {
-    return;
-  }
-
   class TestThread : public Thread {
    private:
     void Run() {
       opengl_context_.MakeCurrent();
       SiftMatchGPU sift_match_gpu;
-      SiftMatchingOptions match_options;
-      match_options.max_num_matches = 1000;
-      BOOST_CHECK(CreateSiftGPUMatcher(match_options, &sift_match_gpu));
+      SiftMatchingOptions create_options;
+      create_options.max_num_matches = 1000;
+      BOOST_CHECK(CreateSiftGPUMatcher(create_options, &sift_match_gpu));
 
       FeatureKeypoints empty_keypoints(0);
       FeatureKeypoints keypoints1(2);

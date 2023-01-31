@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -39,6 +39,7 @@
 #include <list>
 #include <queue>
 #include <unordered_map>
+#include <thread>
 
 #include "util/timer.h"
 
@@ -47,20 +48,6 @@ namespace colmap {
 #ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wkeyword-macro"
-#endif
-
-// Define `thread_local` cross-platform.
-#ifndef thread_local
-#if __STDC_VERSION__ >= 201112 && !defined __STDC_NO_THREADS__
-#define thread_local _Thread_local
-#elif defined _WIN32 && (defined _MSC_VER || defined __ICL || \
-                         defined __DMC__ || defined __BORLANDC__)
-#define thread_local __declspec(thread)
-#elif defined __GNUC__ || defined __SUNPRO_C || defined __xlC__
-#define thread_local __thread
-#else
-#error "Cannot define thread_local"
-#endif
 #endif
 
 #ifdef __clang__
@@ -276,7 +263,7 @@ class JobQueue {
   class Job {
    public:
     Job() : valid_(false) {}
-    explicit Job(const T& data) : data_(data), valid_(true) {}
+    explicit Job(T data) : data_(std::move(data)), valid_(true) {}
 
     // Check whether the data is valid.
     bool IsValid() const { return valid_; }
@@ -298,7 +285,7 @@ class JobQueue {
   size_t Size();
 
   // Push a new job to the queue. Waits if the number of jobs is exceeded.
-  bool Push(const T& data);
+  bool Push(T data);
 
   // Pop a job from the queue. Waits if there is no job in the queue.
   Job Pop();
@@ -374,7 +361,7 @@ size_t JobQueue<T>::Size() {
 }
 
 template <typename T>
-bool JobQueue<T>::Push(const T& data) {
+bool JobQueue<T>::Push(T data) {
   std::unique_lock<std::mutex> lock(mutex_);
   while (jobs_.size() >= max_num_jobs_ && !stop_) {
     pop_condition_.wait(lock);
@@ -382,7 +369,7 @@ bool JobQueue<T>::Push(const T& data) {
   if (stop_) {
     return false;
   } else {
-    jobs_.push(data);
+    jobs_.push(std::move(data));
     push_condition_.notify_one();
     return true;
   }
@@ -397,13 +384,13 @@ typename JobQueue<T>::Job JobQueue<T>::Pop() {
   if (stop_) {
     return Job();
   } else {
-    const T data = jobs_.front();
+    Job job(std::move(jobs_.front()));
     jobs_.pop();
     pop_condition_.notify_one();
     if (jobs_.empty()) {
       empty_condition_.notify_all();
     }
-    return Job(data);
+    return job;
   }
 }
 

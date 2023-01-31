@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -145,6 +145,7 @@ class Bitmap {
 
   // Extract EXIF information from bitmap. Returns false if no EXIF information
   // is embedded in the bitmap.
+  bool ExifCameraModel(std::string* camera_model) const;
   bool ExifFocalLength(double* focal_length) const;
   bool ExifLatitude(double* latitude) const;
   bool ExifLongitude(double* longitude) const;

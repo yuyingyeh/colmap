@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -101,7 +101,7 @@ class CameraRig {
   // the relative poses over all snapshots. The pose of the reference camera
   // will be the identity transformation. This assumes that the camera rig has
   // snapshots that are registered in the reconstruction.
-  void ComputeRelativePoses(const Reconstruction& reconstruction);
+  bool ComputeRelativePoses(const Reconstruction& reconstruction);
 
   // Compute the absolute camera pose of the rig. The absolute camera pose of
   // the rig is computed as the average of all relative camera poses in the rig

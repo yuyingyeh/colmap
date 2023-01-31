@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -35,7 +35,10 @@
 #include <fstream>
 #include <memory>
 
-#include "FLANN/flann.hpp"
+#include "flann/flann.hpp"
+#if !defined(GUI_ENABLED) && !defined(CUDA_ENABLED)
+#include "GL/glew.h"
+#endif
 #include "SiftGPU/SiftGPU.h"
 #include "VLFeat/covdet.h"
 #include "VLFeat/sift.h"
@@ -200,39 +203,39 @@ Eigen::MatrixXi ComputeSiftDistanceMatrix(
   return dists;
 }
 
-void FindBestMatchesOneWayFLANN(
+void FindNearestNeighborsFLANN(
     const FeatureDescriptors& query, const FeatureDescriptors& database,
     Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>*
         indices,
     Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>*
         distances) {
+  if (query.rows() == 0 || database.rows() == 0) {
+    return;
+  }
+
   const size_t kNumNearestNeighbors = 2;
   const size_t kNumTreesInForest = 4;
 
-  indices->resize(query.rows(), std::min(kNumNearestNeighbors,
-                                         static_cast<size_t>(database.rows())));
-  distances->resize(
-      query.rows(),
-      std::min(kNumNearestNeighbors, static_cast<size_t>(database.rows())));
+  const size_t num_nearest_neighbors =
+      std::min(kNumNearestNeighbors, static_cast<size_t>(database.rows()));
+
+  indices->resize(query.rows(), num_nearest_neighbors);
+  distances->resize(query.rows(), num_nearest_neighbors);
   const flann::Matrix<uint8_t> query_matrix(const_cast<uint8_t*>(query.data()),
                                             query.rows(), 128);
   const flann::Matrix<uint8_t> database_matrix(
       const_cast<uint8_t*>(database.data()), database.rows(), 128);
 
-  if (query.rows() == 0 || database.rows() == 0) {
-    return;
-  }
-
   flann::Matrix<int> indices_matrix(indices->data(), query.rows(),
-                                    kNumNearestNeighbors);
-  std::vector<float> distances_vector(query.rows() * kNumNearestNeighbors);
+                                    num_nearest_neighbors);
+  std::vector<float> distances_vector(query.rows() * num_nearest_neighbors);
   flann::Matrix<float> distances_matrix(distances_vector.data(), query.rows(),
-                                        kNumNearestNeighbors);
+                                        num_nearest_neighbors);
   flann::Index<flann::L2<uint8_t>> index(
       database_matrix, flann::KDTreeIndexParams(kNumTreesInForest));
   index.buildIndex();
   index.knnSearch(query_matrix, indices_matrix, distances_matrix,
-                  kNumNearestNeighbors, flann::SearchParams(128));
+                  num_nearest_neighbors, flann::SearchParams(128));
 
   for (Eigen::Index query_index = 0; query_index < indices->rows();
        ++query_index) {
@@ -790,9 +793,13 @@ bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
   sift_gpu_args.push_back("-v");
   sift_gpu_args.push_back("0");
 
-  // Fixed maximum image dimension.
+  // Set maximum image dimension.
+  // Note the max dimension of SiftGPU is the maximum dimension of the
+  // first octave in the pyramid (which is the 'first_octave').
+  const int compensation_factor = 1 << -std::min(0, options.first_octave);
   sift_gpu_args.push_back("-maxd");
-  sift_gpu_args.push_back(std::to_string(options.max_image_size));
+  sift_gpu_args.push_back(
+      std::to_string(options.max_image_size * compensation_factor));
 
   // Keep the highest level features.
   sift_gpu_args.push_back("-tc2");
@@ -836,8 +843,8 @@ bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
 
   sift_gpu->gpu_index = gpu_indices[0];
   if (sift_extraction_mutexes.count(gpu_indices[0]) == 0) {
-    sift_extraction_mutexes.emplace(
-        gpu_indices[0], std::unique_ptr<std::mutex>(new std::mutex()));
+    sift_extraction_mutexes.emplace(gpu_indices[0],
+                                    std::make_unique<std::mutex>());
   }
 
   return sift_gpu->VerifyContextGL() == SiftGPU::SIFTGPU_FULL_SUPPORTED;
@@ -851,7 +858,12 @@ bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
   CHECK(bitmap.IsGrey());
   CHECK_NOTNULL(keypoints);
   CHECK_NOTNULL(descriptors);
-  CHECK_EQ(options.max_image_size, sift_gpu->GetMaxDimension());
+
+  // Note the max dimension of SiftGPU is the maximum dimension of the
+  // first octave in the pyramid (which is the 'first_octave').
+  const int compensation_factor = 1 << -std::min(0, options.first_octave);
+  CHECK_EQ(options.max_image_size * compensation_factor,
+           sift_gpu->GetMaxDimension());
 
   CHECK(!options.estimate_affine_shape);
   CHECK(!options.domain_size_pooling);
@@ -989,11 +1001,11 @@ void MatchSiftFeaturesCPUFLANN(const SiftMatchingOptions& match_options,
   Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
       distances_2to1;
 
-  FindBestMatchesOneWayFLANN(descriptors1, descriptors2, &indices_1to2,
-                             &distances_1to2);
+  FindNearestNeighborsFLANN(descriptors1, descriptors2, &indices_1to2,
+                            &distances_1to2);
   if (match_options.cross_check) {
-    FindBestMatchesOneWayFLANN(descriptors2, descriptors1, &indices_2to1,
-                               &distances_2to1);
+    FindNearestNeighborsFLANN(descriptors2, descriptors1, &indices_2to1,
+                              &distances_2to1);
   }
 
   FindBestMatchesFLANN(indices_1to2, distances_1to2, indices_2to1,
@@ -1138,8 +1150,8 @@ bool CreateSiftGPUMatcher(const SiftMatchingOptions& match_options,
 
   sift_match_gpu->gpu_index = gpu_indices[0];
   if (sift_matching_mutexes.count(gpu_indices[0]) == 0) {
-    sift_matching_mutexes.emplace(
-        gpu_indices[0], std::unique_ptr<std::mutex>(new std::mutex()));
+    sift_matching_mutexes.emplace(gpu_indices[0],
+                                  std::make_unique<std::mutex>());
   }
 
   return true;

@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -107,7 +107,6 @@ bool PoissonMeshing(const PoissonMeshingOptions& options,
                     const std::string& input_path,
                     const std::string& output_path);
 
-
 #ifdef CGAL_ENABLED
 
 // Delaunay meshing of sparse and dense COLMAP reconstructions. This is an
@@ -124,8 +123,8 @@ void SparseDelaunayMeshing(const DelaunayMeshingOptions& options,
                            const std::string& input_path,
                            const std::string& output_path);
 void DenseDelaunayMeshing(const DelaunayMeshingOptions& options,
-                           const std::string& input_path,
-                           const std::string& output_path);
+                          const std::string& input_path,
+                          const std::string& output_path);
 
 #endif  // CGAL_ENABLED
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -259,7 +259,7 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   CHECK_NOTNULL(reconstruction);
   CHECK(!problem_) << "Cannot use the same BundleAdjuster multiple times";
 
-  problem_.reset(new ceres::Problem());
+  problem_ = std::make_unique<ceres::Problem>();
 
   ceres::LossFunction* loss_function = options_.CreateLossFunction();
   SetUp(reconstruction, loss_function);
@@ -269,6 +269,8 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   }
 
   ceres::Solver::Options solver_options = options_.solver_options;
+  const bool has_sparse =
+      solver_options.sparse_linear_algebra_library_type != ceres::NO_SPARSE;
 
   // Empirical choice.
   const size_t kMaxNumImagesDirectDenseSolver = 50;
@@ -276,7 +278,7 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   const size_t num_images = config_.NumImages();
   if (num_images <= kMaxNumImagesDirectDenseSolver) {
     solver_options.linear_solver_type = ceres::DENSE_SCHUR;
-  } else if (num_images <= kMaxNumImagesDirectSparseSolver) {
+  } else if (num_images <= kMaxNumImagesDirectSparseSolver && has_sparse) {
     solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
   } else {  // Indirect sparse (preconditioned CG) solver.
     solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
@@ -414,15 +416,11 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 
     // Set pose parameterization.
     if (!constant_pose) {
-      ceres::LocalParameterization* quaternion_parameterization =
-          new ceres::QuaternionParameterization;
-      problem_->SetParameterization(qvec_data, quaternion_parameterization);
+      SetQuaternionManifold(problem_.get(), qvec_data);
       if (config_.HasConstantTvec(image_id)) {
         const std::vector<int>& constant_tvec_idxs =
             config_.ConstantTvec(image_id);
-        ceres::SubsetParameterization* tvec_parameterization =
-            new ceres::SubsetParameterization(3, constant_tvec_idxs);
-        problem_->SetParameterization(tvec_data, tvec_parameterization);
+        SetSubsetManifold(3, constant_tvec_idxs, problem_.get(), tvec_data);
       }
     }
   }
@@ -509,11 +507,9 @@ void BundleAdjuster::ParameterizeCameras(Reconstruction* reconstruction) {
       }
 
       if (const_camera_params.size() > 0) {
-        ceres::SubsetParameterization* camera_params_parameterization =
-            new ceres::SubsetParameterization(
-                static_cast<int>(camera.NumParams()), const_camera_params);
-        problem_->SetParameterization(camera.ParamsData(),
-                                      camera_params_parameterization);
+        SetSubsetManifold(static_cast<int>(camera.NumParams()),
+                          const_camera_params, problem_.get(),
+                          camera.ParamsData());
       }
     }
   }
@@ -820,7 +816,7 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
     }
   }
 
-  problem_.reset(new ceres::Problem());
+  problem_ = std::make_unique<ceres::Problem>();
 
   ceres::LossFunction* loss_function = options_.CreateLossFunction();
   SetUp(reconstruction, camera_rigs, loss_function);
@@ -830,6 +826,8 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
   }
 
   ceres::Solver::Options solver_options = options_.solver_options;
+  const bool has_sparse =
+      solver_options.sparse_linear_algebra_library_type != ceres::NO_SPARSE;
 
   // Empirical choice.
   const size_t kMaxNumImagesDirectDenseSolver = 50;
@@ -837,7 +835,7 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
   const size_t num_images = config_.NumImages();
   if (num_images <= kMaxNumImagesDirectDenseSolver) {
     solver_options.linear_solver_type = ceres::DENSE_SCHUR;
-  } else if (num_images <= kMaxNumImagesDirectSparseSolver) {
+  } else if (num_images <= kMaxNumImagesDirectSparseSolver && has_sparse) {
     solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
   } else {  // Indirect sparse (preconditioned CG) solver.
     solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
@@ -1054,9 +1052,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
     if (!constant_pose && constant_tvec) {
       const std::vector<int>& constant_tvec_idxs =
           config_.ConstantTvec(image_id);
-      ceres::SubsetParameterization* tvec_parameterization =
-          new ceres::SubsetParameterization(3, constant_tvec_idxs);
-      problem_->SetParameterization(tvec_data, tvec_parameterization);
+      SetSubsetManifold(3, constant_tvec_idxs, problem_.get(), tvec_data);
     }
   }
 }
@@ -1139,9 +1135,7 @@ void RigBundleAdjuster::ComputeCameraRigPoses(
 
 void RigBundleAdjuster::ParameterizeCameraRigs(Reconstruction* reconstruction) {
   for (double* qvec_data : parameterized_qvec_data_) {
-    ceres::LocalParameterization* quaternion_parameterization =
-        new ceres::QuaternionParameterization;
-    problem_->SetParameterization(qvec_data, quaternion_parameterization);
+    SetQuaternionManifold(problem_.get(), qvec_data);
   }
 }
 

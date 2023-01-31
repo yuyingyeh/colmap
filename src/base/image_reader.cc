@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -54,6 +54,8 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
   // Ensure trailing slash, so that we can build the correct image name.
   options_.image_path =
       EnsureTrailingSlash(StringReplace(options_.image_path, "\\", "/"));
+  options_.mask_path =
+      EnsureTrailingSlash(StringReplace(options_.mask_path, "\\", "/"));
 
   // Get a list of all files in the image path, sorted by image name.
   if (options_.image_list.empty()) {
@@ -140,7 +142,7 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
   if (mask && !options_.mask_path.empty()) {
     const std::string mask_path =
         JoinPaths(options_.mask_path,
-                  GetRelativePath(options_.image_path, image_path) + ".png");
+                  image->Name() + ".png");
     if (ExistsFile(mask_path) && !mask->Read(mask_path, false)) {
       // NOTE: Maybe introduce a separate error type MASK_ERROR?
       return Status::BITMAP_ERROR;
@@ -182,13 +184,30 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
     }
 
     //////////////////////////////////////////////////////////////////////////////
+    // Read camera model and check for consistency if it exists
+    //////////////////////////////////////////////////////////////////////////////
+    std::string camera_model;
+    const bool valid_camera_model = bitmap->ExifCameraModel(&camera_model);
+    if (camera_model_to_id_.count(camera_model) > 0) {
+      const Camera& cam =
+          database_->ReadCamera(camera_model_to_id_.at(camera_model));
+      if (cam.Width() != static_cast<size_t>(bitmap->Width()) ||
+          cam.Height() != static_cast<size_t>(bitmap->Height())) {
+        return Status::CAMERA_EXIST_DIM_ERROR;
+      }
+      prev_camera_ = cam;
+    }
+
+    //////////////////////////////////////////////////////////////////////////////
     // Extract camera model and focal length
     //////////////////////////////////////////////////////////////////////////////
 
     if (prev_camera_.CameraId() == kInvalidCameraId ||
+        options_.single_camera_per_image ||
         (!options_.single_camera && !options_.single_camera_per_folder &&
          static_cast<camera_t>(options_.existing_camera_id) ==
-             kInvalidCameraId) ||
+             kInvalidCameraId &&
+         camera_model_to_id_.count(camera_model) == 0) ||
         (options_.single_camera_per_folder &&
          image_folders_.count(image_folder) == 0)) {
       if (options_.camera_params.empty()) {
@@ -214,6 +233,9 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
       }
 
       prev_camera_.SetCameraId(database_->WriteCamera(prev_camera_));
+      if (valid_camera_model) {
+        camera_model_to_id_[camera_model] = prev_camera_.CameraId();
+      }
     }
 
     image->SetCameraId(prev_camera_.CameraId());

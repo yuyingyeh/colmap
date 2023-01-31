@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -45,10 +45,10 @@ bool CameraDatabase::QuerySensorWidth(const std::string& make,
   // Clean the strings from all separators.
   std::string cleaned_make = make;
   std::string cleaned_model = model;
-  StringReplace(cleaned_make, " ", "");
-  StringReplace(cleaned_model, " ", "");
-  StringReplace(cleaned_make, "-", "");
-  StringReplace(cleaned_model, "-", "");
+  cleaned_make = StringReplace(cleaned_make, " ", "");
+  cleaned_model = StringReplace(cleaned_model, " ", "");
+  cleaned_make = StringReplace(cleaned_make, "-", "");
+  cleaned_model = StringReplace(cleaned_model, "-", "");
   StringToLower(&cleaned_make);
   StringToLower(&cleaned_model);
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -58,7 +58,9 @@ struct Model {
 
   // Read the model from different data formats.
   void Read(const std::string& path, const std::string& format);
-  void ReadFromCOLMAP(const std::string& path);
+  void ReadFromCOLMAP(const std::string& path,
+                      const std::string& sparse_path = "sparse",
+                      const std::string& images_path = "images");
   void ReadFromPMVS(const std::string& path);
 
   // Get the image index for the given image name.

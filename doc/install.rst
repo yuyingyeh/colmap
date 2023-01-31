@@ -72,39 +72,25 @@ Dependencies from the default Ubuntu repositories::
     sudo apt-get install \
         git \
         cmake \
+        ninja-build \
         build-essential \
         libboost-program-options-dev \
         libboost-filesystem-dev \
         libboost-graph-dev \
-        libboost-regex-dev \
         libboost-system-dev \
         libboost-test-dev \
         libeigen3-dev \
-        libsuitesparse-dev \
+        libflann-dev \
         libfreeimage-dev \
+        libmetis-dev \
         libgoogle-glog-dev \
         libgflags-dev \
+        libsqlite3-dev \
         libglew-dev \
         qtbase5-dev \
         libqt5opengl5-dev \
-        libcgal-dev
-
-Under Ubuntu 16.04/18.04 the CMake configuration scripts of CGAL are broken and
-you must also install the CGAL Qt5 package::
-
-    sudo apt-get install libcgal-qt5-dev
-
-Install `Ceres Solver <http://ceres-solver.org/>`_::
-
-    sudo apt-get install libatlas-base-dev libsuitesparse-dev
-    git clone https://ceres-solver.googlesource.com/ceres-solver
-    cd ceres-solver
-    git checkout $(git describe --tags) # Checkout the latest release
-    mkdir build
-    cd build
-    cmake .. -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF
-    make -j
-    sudo make install
+        libcgal-dev \
+        libceres-dev
 
 Configure and compile COLMAP::
 
@@ -113,42 +99,61 @@ Configure and compile COLMAP::
     git checkout dev
     mkdir build
     cd build
-    cmake ..
-    make -j
-    sudo make install
-
-Under newer Ubuntu versions it might be necessary to explicitly select the used
-GCC version due to compatiblity issues with CUDA, which can be done as::
-
-    CC=/usr/bin/gcc-6 CXX=/usr/bin/g++-6 cmake ..
+    cmake .. -GNinja
+    ninja
+    sudo ninja install
 
 Run COLMAP::
 
     colmap -h
     colmap gui
 
+To compile with **CUDA support**, also install Ubuntu's default CUDA package::
+
+    sudo apt-get install -y \
+        nvidia-cuda-toolkit \
+        nvidia-cuda-toolkit-gcc
+
+Or, manually install latest CUDA from NVIDIA's homepage. During CMake configuration
+specify `CMAKE_CUDA_ARCHITECTURES` as "native", if you want to run COLMAP on your
+current machine only, "all"/"all-major" to be able to distribute to other machines,
+or a specific CUDA architecture like "75", etc.
+
+Under **Ubuntu 16.04/18.04**, the CMake configuration scripts of CGAL are broken and
+you must also install the CGAL Qt5 package::
+
+    sudo apt-get install libcgal-qt5-dev
+
+Under **Ubuntu 22.04**, there is a problem when compiling with Ubuntu's default CUDA
+package and GCC, and you must compile against GCC 10::
+
+    sudo apt-get install gcc-10 g++-10
+    export CC=/usr/bin/gcc-10
+    export CXX=/usr/bin/g++-10
+    export CUDAHOSTCXX=/usr/bin/g++-10
+    # ... and then run CMake against COLMAP's sources.
 
 Mac
 ---
 
-*Recommended dependencies:* CUDA (at least version 7.X)
-
 Dependencies from `Homebrew <http://brew.sh/>`_::
 
-    brew tap homebrew/science
     brew install \
         git \
         cmake \
         boost \
         eigen \
         freeimage \
+        flann \
         glog \
         gflags \
+        metis \
         suite-sparse \
         ceres-solver \
-        qt \
+        qt5 \
         glew \
-        cgal
+        cgal \
+        sqlite3
 
 Configure and compile COLMAP::
 
@@ -157,9 +162,16 @@ Configure and compile COLMAP::
     git checkout dev
     mkdir build
     cd build
-    cmake .. -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
+    cmake .. -DQt5_DIR=/opt/homebrew/opt/qt@5/lib/cmake/Qt5
     make
     sudo make install
+
+If you have Qt 6 installed on your system as well, you might have to temporarily
+link your Qt 5 installation while configuring CMake::
+
+    brew link qt5
+    cmake configuration (from previous code block)
+    brew unlink qt5
 
 Run COLMAP::
 
@@ -170,26 +182,75 @@ Run COLMAP::
 Windows
 -------
 
-*Recommended dependencies:* CUDA (at least version 7.X), CGAL
+*Recommended dependencies:* CUDA (at least version 7.X), Visual Studio 2019
 
-On Windows it is recommended to use the Python build script. Please follow the
-instructions in the next section.
+On Windows, the recommended way is to build COLMAP using vcpkg::
 
-Alternatively, you can install the dependencies manually. Microsoft Visual
-Studio 2013 and newer are confirmed to compile COLMAP without any issues.
+    git clone https://github.com/microsoft/vcpkg
+    cd vcpkg
+    .\bootstrap-vcpkg.bat
+    .\vcpkg install colmap[cuda,tests]:x64-windows
+
+To compile CUDA for multiple compute architectures, please use::
+
+    .\vcpkg install colmap[cuda-redist]:x64-windows
+
+Please refer to the next section for more details.
+
+**Visual Studio 2022**  has some known compiler bugs that crash when
+compiling COLMAP's source code.
+
+
+VCPKG
+-----
+
+COLMAP ships as part of the vcpkg distribution. This enables to conveniently
+build COLMAP and all of its dependencies from scratch under different platforms.
+Note that VCPKG requires you to install CUDA manually in the standard way on
+your platform. To compile COLMAP using VCPKG, you run::
+
+    git clone https://github.com/microsoft/vcpkg
+    cd vcpkg
+    ./bootstrap-vcpkg.sh
+    ./vcpkg install colmap:x64-linux
+
+VCPKG ships with support for various other platforms (e.g., x64-osx,
+x64-windows, etc.). To compile with CUDA support and to build all tests::
+
+    ./vcpkg install colmap[cuda,tests]:x64-linux
+
+The above commands will build the latest release version of COLMAP. To compile
+the latest commit in the dev branch, you can use the following options::
+
+    ./vcpkg install colmap:x64-linux --head
+
+To modify the source code, you can further add ``--editable --no-downloads``.
+Or, if you want to build from another folder and use the dependencies from
+vcpkg, first run `./vcpkg integrate install` and then configure COLMAP as::
+
+    cd path/to/colmap
+    mkdir build
+    cd build
+    cmake .. -DCMAKE_TOOLCHAIN_FILE=path/to/vcpkg/scripts/buildsystems/vcpkg.cmake
+    cmake --build . --config release --target colmap_exe --parallel 24
+
+Alternatively, you can also use the Python build script. Please follow the
+instructions in the next section, but VCPKG is now the recommended approach.
 
 
 Build Script
 ------------
 
-COLMAP ships with an automated Python build script. The build script installs
-COLMAP and its dependencies locally under Windows, Mac, and Linux. Note that
-under Mac and Linux, it is usually easier and faster to use the available
-package managers for the dependencies (see above). However, if you are on a
-(cluster) system without root access, this script might be useful. This script
-downloads the necessary dependencies automatically from the Internet. It assumes
-that CMake, Boost, Qt5, CUDA (optional), and CGAL (optional) are already
-installed on the system. E.g., under Windows you must specify the location of
+Alternative to the above solutions, COLMAP also ships with an automated Python
+build script. Note that VCPKG is the preferred way to achieve the same now.
+The build script installs COLMAP and its dependencies locally
+under Windows, Mac, and Linux. Note that under Mac and Linux, it is usually
+easier and faster to use the available package managers for the dependencies
+(see above). However, if you are on a (cluster) system without root access,
+this script might be useful. This script downloads the necessary dependencies
+automatically from the Internet. It assumes that CMake, Boost, Qt5, CUDA
+(optional), and CGAL (optional) are already installed on the system.
+E.g., under Windows you must specify the location of
 these libraries similar to this::
 
     python scripts/python/build.py \
@@ -269,6 +330,29 @@ with the source code ``hello_world.cc``::
         return EXIT_SUCCESS;
     }
 
+Then compile and run your code as::
+    
+    mkdir build
+    cd build
+    COLMAP_DIR=${CMAKE_INSTALL_PREFIX}/share/colmap cmake ..
+    make
+    ./hello_world
+
+----------------
+AddressSanitizer
+----------------
+
+If you want to build COLMAP with address sanitizer flags enabled, you need to
+use a recent compiler with ASan support. For example, you can manually install
+a recent clang version on your Ubuntu machine and invoke CMake as follows::
+
+    CC=/usr/bin/clang CXX=/usr/bin/clang++ cmake .. \
+        -DASAN_ENABLED=ON \
+        -DTESTS_ENABLED=ON \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+Note that it is generally useful to combine ASan with debug symbols to get
+meaningful traces for reported issues.
 
 -------------
 Documentation
