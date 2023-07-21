@@ -913,8 +913,8 @@ bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
   const int code = sift_gpu->RunSIFT(bitmap.ScanWidth(),
                                      bitmap.Height(),
                                      bitmap_raw_bits.data(),
-                                     GL_LUMINANCE,
-                                     GL_UNSIGNED_BYTE);
+                                     0x1909, 
+                                     0x1401);                                   
 
   const int kSuccessCode = 1;
   if (code != kSuccessCode) {
